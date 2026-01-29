@@ -1,0 +1,26 @@
+# 1. Binaries: Các file đã biên dịch ra mã máy (Binary files)
+*.exe          # File chạy trên Windows
+*.exe~         # File tạm khi biên dịch trên Windows
+*.dll          # Thư viện liên kết động trên Windows
+*.so           # Shared object files trên Linux
+*.dylib        # Thư viện trên macOS
+
+*.test         # Các file thực thi dùng riêng cho việc kiểm thử
+*.out          # Kết quả output của các đợt test hoặc phân tích mã nguồn
+vendor/
+# Environment variables (CHỨA MẬT KHẨU - CẤM PUSH)
+.env
+# 6. IDE specific files: Các file cấu hình riêng của phần mềm soạn thảo code
+# Tránh gây xung đột khi bạn dùng VS Code còn người khác dùng GoLand/IntelliJ
+.idea/         # Folder cấu hình của JetBrains (GoLand)
+.vscode/       # Folder cấu hình của Visual Studio Code
+*.swp          # File tạm khi dùng trình soạn thảo Vim
+*.swo          # File tạm khi dùng trình soạn thảo Vim
+
+# 7. OS specific files: Các file rác tự sinh bởi hệ điều hành
+.DS_Store      # File ẩn của macOS lưu cấu hình hiển thị folder
+Thumbs.db      # File lưu hình ảnh thu nhỏ (thumbnail) của Windows
+
+# 8. Temporary files: Thư mục chứa các file tạm của dự án
+# Thường dùng để lưu log tạm hoặc file build tạm thời
+tmp/

@@ -1,0 +1,21 @@
+# root = true: Thông báo đây là file cấu hình gốc, không cần tìm thêm ở các thư mục cha
+root = true
+
+# [*]: Cấu hình mặc định áp dụng cho TẤT CẢ các loại file trong dự án
+[*]
+indent_style = space          # Sử dụng dấu cách (space) để thụt đầu dòng
+indent_size = 4               # Độ rộng của mỗi lần nhấn Tab là 4 khoảng trắng
+end_of_line = lf              # Sử dụng chuẩn xuống dòng của Linux/macOS (LF) thay vì Windows (CRLF)
+charset = utf-8               # Định dạng mã hóa ký tự chuẩn quốc tế
+trim_trailing_whitespace = true # Tự động xóa các khoảng trắng thừa ở cuối mỗi dòng code
+insert_final_newline = true   # Luôn tự động thêm một dòng trống ở cuối file (chuẩn POSIX)
+
+# [*.go]: Cấu hình dành riêng cho ngôn ngữ Go
+[*.go]
+indent_style = tab            # Golang bắt buộc dùng dấu Tab thực (không dùng space) theo chuẩn gofmt
+indent_size = 4               # Độ rộng hiển thị của dấu Tab là 4
+
+# [*.{yml,yaml,json}]: Cấu hình cho các file cấu hình (như docker-compose.yml hay file JSON)
+[*.{yml,yaml,json}]
+indent_style = space          # Các file này bắt buộc dùng dấu cách để tránh lỗi cú pháp
+indent_size = 2               # Độ rộng thụt đầu dòng thường dùng cho YAML/JSON là 2 khoảng trắng
