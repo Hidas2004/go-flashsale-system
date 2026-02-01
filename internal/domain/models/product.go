@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
 )
 
 type Product struct {
@@ -22,8 +23,9 @@ type Product struct {
 	FlashSaleStart *time.Time       `json:"flash_sale_start"`
 	FlashSaleEnd   *time.Time       `json:"flash_sale_end"`
 
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 
 func (Product) TableName() string {

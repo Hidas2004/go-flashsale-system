@@ -1,0 +1,1 @@
+nó kiểm tra xem kho còn hàng không và người dùng có mua quá giới hạn cho phép không. Nếu cả hai điều kiện đều thỏa mãn, nó mới trừ kho và ghi nhận lịch sử mua, tất cả diễn ra trong một bước duy nhất (Atomic) để tránh lỗi khi có nhiều người mua cùng lúc.

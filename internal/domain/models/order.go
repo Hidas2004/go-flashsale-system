@@ -5,14 +5,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
 )
 
 type OrderStatus string
 
+// CHECK (status IN ('pending', 'processing', 'confirmed', 'failed', 'cancelled'))
 const (
-	OrderStatusPending   OrderStatus = "pending"
-	OrderStatusConfirmed OrderStatus = "confirmed"
-	OrderStatusCancelled OrderStatus = "cancelled"
+	OrderStatusPending    OrderStatus = "pending"
+	OrderStatusProcessing OrderStatus = "processing"
+	OrderStatusConfirmed  OrderStatus = "confirmed"
+	OrderStatusFailed     OrderStatus = "failed"
+	OrderStatusCancelled  OrderStatus = "cancelled"
 )
 
 type Order struct {
@@ -25,8 +29,9 @@ type Order struct {
 
 	Status OrderStatus `gorm:"type:varchar(50);default:'pending';index" json:"status"`
 
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 
 	// Associations
 	User    User    `gorm:"foreignKey:UserID" json:"user,omitempty"`
