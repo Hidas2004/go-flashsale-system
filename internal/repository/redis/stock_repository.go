@@ -12,6 +12,10 @@ import (
 
 //go:embed lua_scripts/deduct_stock.lua
 var deductStockScript string
+
+//go:embed lua_scripts/reset_stock.lua
+var resetStockScript string
+
 var (
 	ErrOutOfStock    = errors.New("products out of stock/sản phẩm hết hàng")
 	ErrLimitExceeded = errors.New("user purchase limit exceeded/đã vượt quá giới hạn mua của người dùng")
@@ -46,4 +50,24 @@ func (r *StockRepository) DeductStock(ctx context.Context, productID string, use
 		return fmt.Errorf("unknown result from redis script/mã lỗi lua không xác định: %d", result)
 	}
 
+}
+
+func (r *StockRepository) ReserveStock(ctx context.Context, productID string, userID string, quantity int, ttlSeconds int) (string, error) {
+	stockKey := fmt.Sprintf("inventory:product:%s", productID)
+	reserveKey := fmt.Sprintf("inventory:product:%s:reserved", productID)
+
+	result, err := r.client.Eval(ctx, resetStockScript, []string{stockKey, reserveKey}, quantity, userID, ttlSeconds).Result()
+	if err != nil {
+		return "", fmt.Errorf("redis eval error: %w", err)
+	}
+	// 3 ép kiểu trả về
+	if isVal, ok := result.(int64); ok {
+		if isVal == -1 {
+			return "", ErrOutOfStock
+		}
+	}
+	if strVal, ok := result.(string); ok {
+		return strVal, nil
+	}
+	return "", fmt.Errorf("unknown result from redis script/mã lỗi lua không xác định")
 }
