@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 15s # (Step) Cứ 15s lấy số liệu 1 lần
+
+scrape_configs:
+  - job_name: 'flashdeal-api'
+    metrics_path: '/metrics'
+    static_configs:
+      # host.docker.internal giúp container gọi được App đang chạy ở Host (Windows/Mac)
+      - targets: ['host.docker.internal:8080']
