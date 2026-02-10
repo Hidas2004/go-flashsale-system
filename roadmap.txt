@@ -30,7 +30,7 @@ go-flashsale-system/
 ├── cmd/
 │   ├── api/
 │   │   └── main.go                    # API Server entry point
-│   ├── consumer/
+│   ├── worker/
 │   │   └── main.go                    # Worker consumer
 │   └── migration/
 │       └── main.go                    # Migration runner
@@ -268,7 +268,7 @@ mkdir -p test/mocks
 Tạo files cơ bản:
 bash
 touch cmd/api/main.go
-touch cmd/consumer/main.go
+touch cmd/worker/main.go
 touch config/config.yaml config/config.go
 touch .env .env.example .gitignore README.md Makefile
 touch docker-compose.yml Dockerfile

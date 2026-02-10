@@ -103,7 +103,7 @@ func (c *InventoryCache) CheckAndReserve(ctx context.Context, productID uuid.UUI
 }
 
 
-
+//rollback stock
 func (c *InventoryCache) IncrStock(ctx context.Context, productID uuid.UUID, quantity int) error {
 	key := fmt.Sprintf("product:%s:stock", productID.String())
 	//lệnh IncryBy 	hãy tìm cái key này ,và cộng thêm vào giá trị hiện tại 1 lượng là quantity

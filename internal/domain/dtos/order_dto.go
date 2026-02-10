@@ -19,3 +19,10 @@ type OrderMessage struct {
 	TotalPrice float64   `json:"total_price"`
 	CreatedAt  time.Time `json:"created_at"`
 }
+
+type OrderResponse struct {
+	OrderID  uuid.UUID `json:"order_id"`
+	Status   string    `json:"status"`
+	Message  string    `json:"message"`
+	QueuedAt string    `json:"queued_at,omitempty"`
+}
