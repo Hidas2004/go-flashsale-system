@@ -67,6 +67,7 @@ func (c *InventoryCache) DeductStock(ctx context.Context, productID uuid.UUID, u
 	}
 }
 
+//dùng để đồng bộ số lượng tồn kho từ database lên reddis trước khi bắt đầu 
 func (c *InventoryCache) SetInitialStock(ctx context.Context, productID uuid.UUID, quantity int) error {
 	key := fmt.Sprintf("product:%s:stock", productID.String())
 	return c.client.Set(ctx, key, quantity, 0).Err()

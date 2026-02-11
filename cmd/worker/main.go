@@ -57,11 +57,16 @@ func main() {
 	// Repository & Transaction Manager
 	txManager := database.NewGormTransactionManager(db)
 	orderRepo := postgres.NewOrderRepository(db)
+	productRepo := postgres.NewProductRepository(db)
 	inventoryRepo := postgres.NewInventoryRepository(db)
 	inventoryCache := redis.NewInventoryCache(rdb)
 
 	// Usecase
-	orderUC := usecase.NewOrderUseCase(orderRepo, inventoryRepo, inventoryCache, rabbitClient, txManager)
+	orderUC := usecase.NewOrderUseCase(orderRepo, productRepo, inventoryRepo, inventoryCache, rabbitClient, txManager)
+	inventoryUC := usecase.NewInventoryUseCase(inventoryRepo, inventoryCache)
+
+	// Log that InventoryUC is ready (or use it if needed)
+	_ = inventoryUC
 	//Consumer
 	orderConsumer := worker.NewOrderConsumer(rabbitClient, orderUC)
 	ctx, cancel := context.WithCancel(context.Background())

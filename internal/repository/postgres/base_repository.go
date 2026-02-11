@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 
+	"github.com/Hidas2004/go-flashsale-system/pkg/database"
 	"gorm.io/gorm"
 )
 
@@ -11,9 +12,8 @@ func GetDB(ctx context.Context, originalDB *gorm.DB) *gorm.DB {
 	//dòng này làm 2 nhiệm vụ
 	//-lấy giá trị ra the0 key "DB_TX"
 	//Ép kiểu (Type Assertion) nó về dạng *gorm.DB
-	tx, ok := ctx.Value("DB_TX").(*gorm.DB)
-	//2 trường hợp có transaction
-	if ok {
+	if tx, ok := ctx.Value(database.TxKey).(*gorm.DB); ok {
+		//2 trường hợp có transaction
 		return tx
 	}
 	//3 trường hợp không có

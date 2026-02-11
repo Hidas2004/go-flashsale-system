@@ -13,26 +13,9 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-type OrderRepository interface {
-	CheckOrderExists(ctx context.Context, id uuid.UUID) (bool, error)
-	CreateOrder(ctx context.Context, order *models.Order) error
-	UpdateStatus(ctx context.Context, id uuid.UUID, status models.OrderStatus) error
-}
-
-type InventoryRepository interface {
-	DeductStock(ctx context.Context, productID uuid.UUID, quantity int) error
-}
-
-type InventoryCache interface {
-	DeductStock(ctx context.Context, productID uuid.UUID, userID string, quantity int, limit int) error
-	IncrStock(ctx context.Context, productID uuid.UUID, quantity int) error
-}
-type MessageQueue interface {
-	Publish(ctx context.Context, msg interface{}) error
-}
-
 type OrderUseCase struct {
 	orderRepo      OrderRepository
+	productRepo    ProductRepository
 	inventoryRepo  InventoryRepository
 	inventoryCache InventoryCache
 	mq             MessageQueue
@@ -41,6 +24,7 @@ type OrderUseCase struct {
 
 func NewOrderUseCase(
 	orderRepo OrderRepository,
+	productRepo ProductRepository,
 	inventoryRepo InventoryRepository,
 	inventoryCache InventoryCache,
 	mq MessageQueue,
@@ -48,6 +32,7 @@ func NewOrderUseCase(
 ) *OrderUseCase {
 	return &OrderUseCase{
 		orderRepo:      orderRepo,
+		productRepo:    productRepo,
 		inventoryRepo:  inventoryRepo,
 		inventoryCache: inventoryCache,
 		mq:             mq,
@@ -55,26 +40,63 @@ func NewOrderUseCase(
 	}
 }
 
+// CreateFlashSaleOrder - Xử lý tạo đơn hàng Flash Sale (High Concurrency)
 func (u *OrderUseCase) CreateFlashSaleOrder(ctx context.Context, userID uuid.UUID, req *dtos.CreateOrderRequest) (*dtos.OrderResponse, error) {
-	// 1.1 Trừ kho Redis
-	if err := u.inventoryCache.DeductStock(ctx, req.ProductID, userID.String(), req.Quantity, 1); err != nil {
-		return nil, fmt.Errorf("deduct redis failed: %w", err)
+	// 1. Validate Product & Flash Sale Logic
+	product, err := u.productRepo.FindByID(ctx, req.ProductID)
+	if err != nil {
+		return nil, fmt.Errorf("product not found: %w", err)
 	}
-	// 1.2 Tạo Message
+
+	if !product.IsFlashSale {
+		return nil, fmt.Errorf("product is not in flash sale")
+	}
+
+	// Check thời gian Flash Sale
+	now := time.Now()
+	if product.FlashSaleStart != nil && now.Before(*product.FlashSaleStart) {
+		return nil, fmt.Errorf("flash sale has not started yet")
+	}
+	if product.FlashSaleEnd != nil && now.After(*product.FlashSaleEnd) {
+		return nil, fmt.Errorf("flash sale has ended")
+	}
+
+	// 2. Deduct Redis Stock (Lua Script - Atomic)
+	// limit = 1 (mỗi user chỉ được mua 1 cái trong đợt sale này để tránh đầu cơ)
+	if err := u.inventoryCache.DeductStock(ctx, req.ProductID, userID.String(), req.Quantity, 1); err != nil {
+		return nil, fmt.Errorf("failed to deduct stock: %w", err)
+	}
+
+	// 3. Tính toán giá tiền
+	// Ưu tiên lấy giá Flash Sale nếu có
+	price := product.Price
+	if product.FlashSalePrice != nil {
+		price = *product.FlashSalePrice
+	}
+	totalPrice := price.Mul(decimal.NewFromInt(int64(req.Quantity)))
+	// Lưu ý: totalPrice hiện tại chỉ dùng để log hoặc bắn message, 
+	// việc tính toán chính xác cuối cùng nên override ở Consumer để bảo mật hơn.
+
+	// 4. Tạo Message đẩy vào Queue
 	orderID := uuid.New()
 	msg := dtos.OrderMessage{
 		OrderID:    orderID,
 		UserID:     userID,
 		ProductID:  req.ProductID,
 		Quantity:   req.Quantity,
-		TotalPrice: 0,
+		TotalPrice: totalPrice.InexactFloat64(), // Convert sang float để json transport dễ dàng
 		CreatedAt:  time.Now(),
 	}
-	//1.3 bắn vào queue
+
+	// 5. Publish to RabbitMQ
 	if err := u.mq.Publish(ctx, msg); err != nil {
+		// [CRITICAL] Rollback Redis Stock nếu publish lỗi
+		// Đây là cơ chế "Best Effort" để tránh mất hàng (Stock Leak)
+		log.Printf("❌ Publish RabbitMQ failed for order %s. Rolling back stock...", orderID)
 		_ = u.inventoryCache.IncrStock(ctx, req.ProductID, req.Quantity)
 		return nil, fmt.Errorf("publish message failed: %w", err)
 	}
+
 	return &dtos.OrderResponse{
 		OrderID:  orderID,
 		Status:   "processing",
@@ -83,7 +105,9 @@ func (u *OrderUseCase) CreateFlashSaleOrder(ctx context.Context, userID uuid.UUI
 	}, nil
 }
 
+// ProcessOrder - Worker sẽ gọi hàm này để xử lý message từ Queue
 func (u *OrderUseCase) ProcessOrder(ctx context.Context, msg *dtos.OrderMessage) error {
+	// 1. Idempotency Check (Tránh duplicate đơn hàng)
 	exists, err := u.orderRepo.CheckOrderExists(ctx, msg.OrderID)
 	if err != nil {
 		return err
@@ -92,7 +116,8 @@ func (u *OrderUseCase) ProcessOrder(ctx context.Context, msg *dtos.OrderMessage)
 		log.Printf("⚠️ Order %s processed. Skipping.", msg.OrderID)
 		return nil
 	}
-	// Dùng txManager của pkg/database
+
+	// 2. Transaction DB (Tạo Order + Trừ Inventory DB)
 	return u.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		order := &models.Order{
 			ID:         msg.OrderID,
@@ -102,15 +127,26 @@ func (u *OrderUseCase) ProcessOrder(ctx context.Context, msg *dtos.OrderMessage)
 			TotalPrice: decimal.NewFromFloat(msg.TotalPrice),
 			Status:     models.OrderStatusPending,
 		}
+		
+		// 2.1 Lưu đơn hàng
 		if err := u.orderRepo.CreateOrder(txCtx, order); err != nil {
 			return err
 		}
 
-		// Trừ kho DB (InventoryRepository - Postgres)
+		// 2.2 Trừ kho DB (InventoryRepository - Postgres) để đồng bộ với Redis
 		if err := u.inventoryRepo.DeductStock(txCtx, msg.ProductID, msg.Quantity); err != nil {
 			return err
 		}
-
+		
+		// 2.3 Update trạng thái thành công
 		return u.orderRepo.UpdateStatus(txCtx, order.ID, models.OrderStatusConfirmed)
 	})
+}
+
+func (u *OrderUseCase) GetOrderByID(ctx context.Context, orderID uuid.UUID) (*models.Order, error) {
+	return u.orderRepo.FindByID(ctx, orderID)
+}
+
+func (u *OrderUseCase) GetUserOrders(ctx context.Context, userID uuid.UUID) ([]*models.Order, error) {
+	return u.orderRepo.FindByUserID(ctx, userID)
 }
