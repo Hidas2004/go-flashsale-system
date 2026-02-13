@@ -13,10 +13,10 @@ import (
 
 type OrderConsumer struct {
 	client       *rabbitmq.RabbitMQClient
-	orderUseCase *usecase.OrderUseCase
+	orderUseCase usecase.OrderUseCase
 }
 
-func NewOrderConsumer(client *rabbitmq.RabbitMQClient, uc *usecase.OrderUseCase) *OrderConsumer {
+func NewOrderConsumer(client *rabbitmq.RabbitMQClient, uc usecase.OrderUseCase) *OrderConsumer {
 	return &OrderConsumer{client: client, orderUseCase: uc}
 }
 

@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/Hidas2004/go-flashsale-system/internal/domain"
 	"github.com/Hidas2004/go-flashsale-system/internal/domain/dtos"
 	"github.com/Hidas2004/go-flashsale-system/internal/domain/models"
 	"github.com/Hidas2004/go-flashsale-system/pkg/database"
@@ -13,24 +14,24 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-type OrderUseCase struct {
-	orderRepo      OrderRepository
-	productRepo    ProductRepository
-	inventoryRepo  InventoryRepository
-	inventoryCache InventoryCache
-	mq             MessageQueue
+type orderUseCase struct {
+	orderRepo      domain.OrderRepository
+	productRepo    domain.ProductRepository
+	inventoryRepo  domain.InventoryRepository
+	inventoryCache domain.InventoryCache
+	mq             domain.MessageQueue
 	txManager      database.TransactionManager
 }
 
 func NewOrderUseCase(
-	orderRepo OrderRepository,
-	productRepo ProductRepository,
-	inventoryRepo InventoryRepository,
-	inventoryCache InventoryCache,
-	mq MessageQueue,
+	orderRepo domain.OrderRepository,
+	productRepo domain.ProductRepository,
+	inventoryRepo domain.InventoryRepository,
+	inventoryCache domain.InventoryCache,
+	mq domain.MessageQueue,
 	txManager database.TransactionManager,
-) *OrderUseCase {
-	return &OrderUseCase{
+) OrderUseCase {
+	return &orderUseCase{
 		orderRepo:      orderRepo,
 		productRepo:    productRepo,
 		inventoryRepo:  inventoryRepo,
@@ -41,7 +42,7 @@ func NewOrderUseCase(
 }
 
 // CreateFlashSaleOrder - Xử lý tạo đơn hàng Flash Sale (High Concurrency)
-func (u *OrderUseCase) CreateFlashSaleOrder(ctx context.Context, userID uuid.UUID, req *dtos.CreateOrderRequest) (*dtos.OrderResponse, error) {
+func (u *orderUseCase) CreateFlashSaleOrder(ctx context.Context, userID uuid.UUID, req *dtos.CreateOrderRequest) (*dtos.OrderResponse, error) {
 	// 1. Validate Product & Flash Sale Logic
 	product, err := u.productRepo.FindByID(ctx, req.ProductID)
 	if err != nil {
@@ -74,7 +75,7 @@ func (u *OrderUseCase) CreateFlashSaleOrder(ctx context.Context, userID uuid.UUI
 		price = *product.FlashSalePrice
 	}
 	totalPrice := price.Mul(decimal.NewFromInt(int64(req.Quantity)))
-	// Lưu ý: totalPrice hiện tại chỉ dùng để log hoặc bắn message, 
+	// Lưu ý: totalPrice hiện tại chỉ dùng để log hoặc bắn message,
 	// việc tính toán chính xác cuối cùng nên override ở Consumer để bảo mật hơn.
 
 	// 4. Tạo Message đẩy vào Queue
@@ -106,7 +107,7 @@ func (u *OrderUseCase) CreateFlashSaleOrder(ctx context.Context, userID uuid.UUI
 }
 
 // ProcessOrder - Worker sẽ gọi hàm này để xử lý message từ Queue
-func (u *OrderUseCase) ProcessOrder(ctx context.Context, msg *dtos.OrderMessage) error {
+func (u *orderUseCase) ProcessOrder(ctx context.Context, msg *dtos.OrderMessage) error {
 	// 1. Idempotency Check (Tránh duplicate đơn hàng)
 	exists, err := u.orderRepo.CheckOrderExists(ctx, msg.OrderID)
 	if err != nil {
@@ -127,7 +128,7 @@ func (u *OrderUseCase) ProcessOrder(ctx context.Context, msg *dtos.OrderMessage)
 			TotalPrice: decimal.NewFromFloat(msg.TotalPrice),
 			Status:     models.OrderStatusPending,
 		}
-		
+
 		// 2.1 Lưu đơn hàng
 		if err := u.orderRepo.CreateOrder(txCtx, order); err != nil {
 			return err
@@ -137,16 +138,16 @@ func (u *OrderUseCase) ProcessOrder(ctx context.Context, msg *dtos.OrderMessage)
 		if err := u.inventoryRepo.DeductStock(txCtx, msg.ProductID, msg.Quantity); err != nil {
 			return err
 		}
-		
+
 		// 2.3 Update trạng thái thành công
 		return u.orderRepo.UpdateStatus(txCtx, order.ID, models.OrderStatusConfirmed)
 	})
 }
 
-func (u *OrderUseCase) GetOrderByID(ctx context.Context, orderID uuid.UUID) (*models.Order, error) {
+func (u *orderUseCase) GetOrderByID(ctx context.Context, orderID uuid.UUID) (*models.Order, error) {
 	return u.orderRepo.FindByID(ctx, orderID)
 }
 
-func (u *OrderUseCase) GetUserOrders(ctx context.Context, userID uuid.UUID) ([]*models.Order, error) {
+func (u *orderUseCase) GetUserOrders(ctx context.Context, userID uuid.UUID) ([]*models.Order, error) {
 	return u.orderRepo.FindByUserID(ctx, userID)
 }

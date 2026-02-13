@@ -5,26 +5,27 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/Hidas2004/go-flashsale-system/internal/domain"
 	"github.com/google/uuid"
 )
 
-type InventoryUseCase struct {
-	inventoryRepo  InventoryRepository
-	inventoryCache InventoryCache
+type inventoryUseCase struct {
+	inventoryRepo  domain.InventoryRepository
+	inventoryCache domain.InventoryCache
 }
 
 func NewInventoryUseCase(
-	inventoryRepo InventoryRepository,
-	inventoryCache InventoryCache,
-) *InventoryUseCase {
-	return &InventoryUseCase{
+	inventoryRepo domain.InventoryRepository,
+	inventoryCache domain.InventoryCache,
+) InventoryUseCase {
+	return &inventoryUseCase{
 		inventoryRepo:  inventoryRepo,
 		inventoryCache: inventoryCache,
 	}
 }
 
 // SyncStockToRedis - Đồng bộ tồn kho từ DB lên Redis (Cache Warming)
-func (u *InventoryUseCase) SyncStockToRedis(ctx context.Context, productID uuid.UUID) error {
+func (u *inventoryUseCase) SyncStockToRedis(ctx context.Context, productID uuid.UUID) error {
 	//1 lấy tồn kho thực tế từ DB
 	inventory, err := u.inventoryRepo.FindByProductID(ctx, productID)
 	if err != nil {

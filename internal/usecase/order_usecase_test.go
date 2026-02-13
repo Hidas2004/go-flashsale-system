@@ -104,7 +104,10 @@ func (m *MockInventoryRepository) UpdateStock(ctx context.Context, productID uui
 	return args.Error(0)
 }
 
-
+func (m *MockInventoryRepository) Create(ctx context.Context, inv *models.Inventory) error {
+	args := m.Called(ctx, inv)
+	return args.Error(0)
+}
 
 type MockInventoryCache struct {
 	mock.Mock
@@ -262,17 +265,17 @@ func TestCreateFlashSaleOrder_Fail_FlashSaleEnded(t *testing.T) {
 	mockProductRepo := new(MockProductRepository)
 	uc := usecase.NewOrderUseCase(nil, mockProductRepo, nil, nil, nil, nil)
 	ctx := context.Background()
-	
+
 	productID := uuid.New()
 	req := &dtos.CreateOrderRequest{ProductID: productID, Quantity: 1}
-	
+
 	yesterday := time.Now().Add(-24 * time.Hour)
 
 	// 2. Expectation
 	mockProductRepo.On("FindByID", ctx, productID).Return(&models.Product{
-		ID:             productID,
-		IsFlashSale:    true,
-		FlashSaleEnd:   &yesterday, // Ended
+		ID:           productID,
+		IsFlashSale:  true,
+		FlashSaleEnd: &yesterday, // Ended
 	}, nil)
 
 	// 3. Execute

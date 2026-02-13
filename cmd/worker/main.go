@@ -21,7 +21,7 @@ func main() {
 	//1 load cofig
 	cfg, err := config.LoadConfig("./config")
 	if err != nil {
-		log.Fatal("Failed to load config: %v", err)
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
 	//// 2. Setup Infrastructure (Database, RabbitMQ)
