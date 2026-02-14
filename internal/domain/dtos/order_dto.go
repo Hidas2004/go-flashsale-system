@@ -26,3 +26,6 @@ type OrderResponse struct {
 	Message  string    `json:"message"`
 	QueuedAt string    `json:"queued_at,omitempty"`
 }
+type UpdateOrderStatusRequest struct {
+	Status string `json:"status" binding:"required"`
+}

@@ -19,6 +19,7 @@ type ProductRepository interface {
 	FindByID(ctx context.Context, id uuid.UUID) (*models.Product, error)
 	Create(ctx context.Context, product *models.Product) error
 	Update(ctx context.Context, product *models.Product) error
+	Delete(ctx context.Context, product *models.Product) error
 	FindFlashSaleProducts(ctx context.Context) ([]*models.Product, error)
 }
 
@@ -29,6 +30,7 @@ type OrderRepository interface {
 	UpdateStatus(ctx context.Context, id uuid.UUID, status models.OrderStatus) error
 	FindByID(ctx context.Context, id uuid.UUID) (*models.Order, error)
 	FindByUserID(ctx context.Context, userID uuid.UUID) ([]*models.Order, error)
+	ListAll(ctx context.Context, page, limit int) ([]*models.Order, int64, error)
 }
 
 // InventoryRepository defines methods for inventory data access (DB)
@@ -37,6 +39,8 @@ type InventoryRepository interface {
 	FindByProductID(ctx context.Context, productID uuid.UUID) (*models.Inventory, error)
 	UpdateStock(ctx context.Context, productID uuid.UUID, quantity int) error
 	Create(ctx context.Context, inv *models.Inventory) error
+	// [NEW] Hoàn trả kho (Dùng cho Cancel Order)
+	RestoreStock(ctx context.Context, productID uuid.UUID, quantity int) error
 }
 
 // InventoryCache defines methods for inventory caching (Redis)
@@ -50,4 +54,11 @@ type InventoryCache interface {
 // MessageQueue defines methods for messaging (RabbitMQ)
 type MessageQueue interface {
 	Publish(ctx context.Context, msg interface{}) error
+}
+
+// ProductCache defines methods for product caching (Redis)
+type ProductCache interface {
+	GetFlashSaleProducts(ctx context.Context) ([]*models.Product, error)
+	SetFlashSaleProducts(ctx context.Context, products []*models.Product) error
+	InvalidateFlashSaleProducts(ctx context.Context) error
 }

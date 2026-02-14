@@ -40,6 +40,10 @@ func (r *ProductRepository) Update(ctx context.Context, product *models.Product)
 	return GetDB(ctx, r.db).Save(product).Error
 }
 
+func (r *ProductRepository) Delete(ctx context.Context, product *models.Product) error {
+	return GetDB(ctx, r.db).Delete(product).Error
+}
+
 // 4. FindFlashSaleProducts - Lấy danh sách đang Flash Sale
 func (r *ProductRepository) FindFlashSaleProducts(ctx context.Context) ([]*models.Product, error) {
 	var products []*models.Product
@@ -54,3 +58,4 @@ func (r *ProductRepository) FindFlashSaleProducts(ctx context.Context) ([]*model
 	}
 	return products, nil
 }
+

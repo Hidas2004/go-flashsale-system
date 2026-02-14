@@ -57,3 +57,11 @@ func (r *InventoryRepository) UpdateStock(ctx context.Context, productID uuid.UU
 func (r *InventoryRepository) Create(ctx context.Context, inv *models.Inventory) error {
 	return GetDB(ctx, r.db).Create(inv).Error
 }
+
+// RestoreStock - Cộng lại số lượng tồn kho (Atomic Update)
+func (r *InventoryRepository) RestoreStock(ctx context.Context, productID uuid.UUID, quantity int) error {
+	return GetDB(ctx, r.db).
+		Model(&models.Inventory{}).
+		Where("product_id = ?", productID).
+		Update("stock", gorm.Expr("stock + ?", quantity)).Error
+}

@@ -15,8 +15,9 @@ type AuthUseCase interface {
 
 type ProductUseCase interface {
 	FindByID(ctx context.Context, id uuid.UUID) (*models.Product, error)
-	Create(ctx context.Context, product *models.Product) error
-	Update(ctx context.Context, product *models.Product) error
+	CreateProduct(ctx context.Context, req *dtos.CreateProductRequest) (*models.Product, error)
+	UpdateProduct(ctx context.Context, id uuid.UUID, req *dtos.UpdateProductRequest) (*models.Product, error)
+	DeleteProduct(ctx context.Context, id uuid.UUID) error
 	FindFlashSaleProducts(ctx context.Context) ([]*models.Product, error)
 }
 
@@ -25,6 +26,8 @@ type OrderUseCase interface {
 	ProcessOrder(ctx context.Context, msg *dtos.OrderMessage) error
 	GetOrderByID(ctx context.Context, orderID uuid.UUID) (*models.Order, error)
 	GetUserOrders(ctx context.Context, userID uuid.UUID) ([]*models.Order, error)
+	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus models.OrderStatus) error
+	ListOrders(ctx context.Context, page, limit int) ([]*models.Order, int64, error)
 }
 
 type InventoryUseCase interface {

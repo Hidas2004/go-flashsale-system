@@ -53,11 +53,17 @@ func (uc *authUseCase) Register(ctx context.Context, req *dtos.RegisterRequest) 
 		return nil, err
 	}
 	// 3. Tạo User
+	role := "customer"
+	if req.Role != "" {
+		role = req.Role
+	}
+
 	user := &models.User{
 		ID:           uuid.New(),
 		Email:        req.Email,
 		PasswordHash: string(hashedPassword),
 		FullName:     req.FullName,
+		Role:         role,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}

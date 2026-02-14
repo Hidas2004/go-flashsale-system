@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/Hidas2004/go-flashsale-system/internal/domain/dtos"
+	"github.com/Hidas2004/go-flashsale-system/internal/domain/models"
 	"github.com/Hidas2004/go-flashsale-system/internal/usecase"
 	"github.com/Hidas2004/go-flashsale-system/pkg/common/response"
 	"github.com/gin-gonic/gin"
@@ -72,4 +73,43 @@ func (h *OrderHandler) GetUserOrders(c *gin.Context) {
 	}
 
 	response.SuccessResponse(c, http.StatusOK, "Lấy danh sách đơn hàng thành công", gin.H{"orders": orders})
+}
+
+func (h *OrderHandler) AdminUpdateStatus(c *gin.Context) {
+	// 1. Lấy ID từ URL
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.ErrorResponse(c, http.StatusBadRequest, "ID đơn hàng không hợp lệ", err.Error())
+		return
+	}
+	// 2. Bind JSON Body
+	var req dtos.UpdateOrderStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ErrorResponse(c, http.StatusBadRequest, "Dữ liệu không hợp lệ", err.Error())
+		return
+	}
+	// 3. Gọi UseCase
+	if err := h.orderUseCase.UpdateOrderStatus(c.Request.Context(), id, models.OrderStatus(req.Status)); err != nil {
+		response.ErrorResponse(c, http.StatusInternalServerError, "Cập nhật trạng thái thất bại", err.Error())
+		return
+	}
+	response.SuccessResponse(c, http.StatusOK, "Cập nhật trạng thái thành công", nil)
+}
+func (h *OrderHandler) AdminListOrders(c *gin.Context) {
+	// 1. Phân trang (Lấy từ Query Param ?page=1&limit=10)
+	page := 1
+	limit := 10
+	// 2. Gọi UseCase
+	orders, total, err := h.orderUseCase.ListOrders(c.Request.Context(), page, limit)
+	if err != nil {
+		response.ErrorResponse(c, http.StatusInternalServerError, "Lỗi lấy danh sách đơn hàng", err.Error())
+		return
+	}
+	response.SuccessResponse(c, http.StatusOK, "Thành công", gin.H{
+		"orders": orders,
+		"total":  total,
+		"page":   page,
+		"limit":  limit,
+	})
 }

@@ -70,3 +70,25 @@ func (r *OrderRepository) FindByUserID(ctx context.Context, userID uuid.UUID) ([
 	}
 	return orders, nil
 }
+
+func (r *OrderRepository) ListAll(ctx context.Context, page, limit int) ([]*models.Order, int64, error) {
+	var orders []*models.Order
+	var total int64
+	offset := (page - 1) * limit
+	//1 đếm tổng số lượng đơn hàng (để làm phân trang fontend)
+	if err := GetDB(ctx, r.db).Model(&models.Order{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	// 2. Query lấy dữ liệu (preload User để biết ai mua)
+	err := GetDB(ctx, r.db).
+		Preload("User").    // Ai mua?
+		Preload("Product"). // Mua cái gì?
+		Limit(limit).
+		Offset(offset).
+		Order("created_at DESC"). // Mới nhất lên đầu
+		Find(&orders).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return orders, total, nil
+}

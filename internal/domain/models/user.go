@@ -12,6 +12,7 @@ type User struct {
 	PasswordHash string    `gorm:"not null" json:"-"` // JSON "-" để không bao giờ trả về password
 	FullName     string    `gorm:"type:varchar(100)" json:"full_name"`
 
+	Role      string    `gorm:"type:varchar(20);default:'customer';not null" json:"role"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

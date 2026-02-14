@@ -64,6 +64,18 @@ func (u *orderUseCase) CreateFlashSaleOrder(ctx context.Context, userID uuid.UUI
 
 	// 2. Deduct Redis Stock (Lua Script - Atomic)
 	// limit = 1 (mỗi user chỉ được mua 1 cái trong đợt sale này để tránh đầu cơ)
+
+	// [LAZY LOAD] Kiểm tra nếu Redis chưa có data (trả về 0) thì load từ DB lên
+	currentStock, _ := u.inventoryCache.GetStock(ctx, req.ProductID)
+	if currentStock == 0 {
+		inv, err := u.inventoryRepo.FindByProductID(ctx, req.ProductID)
+		if err == nil && inv.Stock > 0 {
+			// Warm up cache
+			_ = u.inventoryCache.SetInitialStock(ctx, req.ProductID, inv.Stock)
+			log.Printf("🔥 Warmed up cache for product %s with stock %d", req.ProductID, inv.Stock)
+		}
+	}
+
 	if err := u.inventoryCache.DeductStock(ctx, req.ProductID, userID.String(), req.Quantity, 1); err != nil {
 		return nil, fmt.Errorf("failed to deduct stock: %w", err)
 	}
@@ -150,4 +162,41 @@ func (u *orderUseCase) GetOrderByID(ctx context.Context, orderID uuid.UUID) (*mo
 
 func (u *orderUseCase) GetUserOrders(ctx context.Context, userID uuid.UUID) ([]*models.Order, error) {
 	return u.orderRepo.FindByUserID(ctx, userID)
+}
+
+func (u *orderUseCase) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus models.OrderStatus) error {
+	// 1. Get Order hiện tại
+	order, err := u.orderRepo.FindByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+	// 2. Validate State Transition (FSM - Model Layer)
+	if !order.IsValidTransition(newStatus) {
+		return fmt.Errorf("invalid status transition from %s to %s", order.Status, newStatus)
+	}
+	// 3. Logic Hoàn Kho (Nếu Cancelled)
+	// Chỉ hoàn kho nếu đơn hàng chuyển sang Cancelled VÀ trạng thái cũ không phải là Failed/Cancelled
+	if newStatus == models.OrderStatusCancelled {
+		// Dùng Transaction để đảm bảo tính nhất quán (Update Status + Restore Stock)
+		return u.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+			// A. Restore Stock (Atomic)
+			if err := u.inventoryRepo.RestoreStock(txCtx, order.ProductID, order.Quantity); err != nil {
+				return err
+			}
+			// B. Update Status
+			return u.orderRepo.UpdateStatus(txCtx, orderID, newStatus)
+		})
+	}
+	// 4. Nếu update bình thường (Pending -> Confirmed -> Shipping...)
+	return u.orderRepo.UpdateStatus(ctx, orderID, newStatus)
+}
+
+func (u *orderUseCase) ListOrders(ctx context.Context, page, limit int) ([]*models.Order, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+	return u.orderRepo.ListAll(ctx, page, limit)
 }
