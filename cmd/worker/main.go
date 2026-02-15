@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/Hidas2004/go-flashsale-system/config"
 	"github.com/Hidas2004/go-flashsale-system/internal/delivery/worker"
@@ -15,6 +17,7 @@ import (
 	"github.com/Hidas2004/go-flashsale-system/internal/usecase"
 	"github.com/Hidas2004/go-flashsale-system/pkg/database"
 	"github.com/Hidas2004/go-flashsale-system/pkg/rabbitmq"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -24,7 +27,6 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	//// 2. Setup Infrastructure (Database, RabbitMQ)
 	//postgreSQL
 	db, err := database.NewPostgresDB(&cfg.Database)
 	if err != nil {
@@ -65,18 +67,56 @@ func main() {
 	orderUC := usecase.NewOrderUseCase(orderRepo, productRepo, inventoryRepo, inventoryCache, rabbitClient, txManager)
 	inventoryUC := usecase.NewInventoryUseCase(inventoryRepo, inventoryCache)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	wg := &sync.WaitGroup{}
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		wg.Add(1)
+		defer wg.Done()
+		for {
+			select {
+			case <-ticker.C:
+				log.Println("🔄 Starting periodic stock reconciliation...")
+				products, err := productRepo.FindFlashSaleProducts(context.Background())
+				if err != nil {
+					log.Printf("❌ Failed to get flash sale products: %v", err)
+					continue
+				}
+				// 2. Duyệt qua từng sản phẩm để đối soát
+				for _, p := range products {
+					if err := inventoryUC.ReconcileStock(context.Background(), p.ID); err != nil {
+						log.Printf("❌ Failed to reconcile stock for product %s: %v", p.ID, err)
+					}
+				}
+				log.Println("✅ Reconciliation finished.")
+			case <-ctx.Done():
+				log.Println("🛑 Stopping reconciliation ticker...")
+				return
+			}
+		}
+	}()
+
 	// Log that InventoryUC is ready (or use it if needed)
 	_ = inventoryUC
 	//Consumer
 	orderConsumer := worker.NewOrderConsumer(rabbitClient, orderUC)
-	ctx, cancel := context.WithCancel(context.Background())
-	wg := &sync.WaitGroup{}
 	go func() {
 		if err := orderConsumer.Start(ctx, wg); err != nil {
 			log.Printf("❌ Consumer error: %v", err)
 			cancel()
 		}
 	}()
+	// [NEW] Metrics Server for Worker
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		log.Println("📊 Worker Metrics running on :9091")
+		if err := http.ListenAndServe(":9091", mux); err != nil {
+			log.Printf("❌ Failed to start metrics server: %v", err)
+		}
+	}()
+
 	quit := make(chan os.Signal, 1) //Tạo một đường ống (channel) để nhận tín hiệu.
 	//nếu người dùng bấm Ctr + C hoặc lệnh docker stop
 	//đừng giết tôi ngay ,mà gửi vào biến quit cho tôi xử lý trươc

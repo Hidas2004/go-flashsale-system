@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
+	"github.com/Hidas2004/go-flashsale-system/pkg/metrics"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
@@ -18,6 +20,7 @@ var (
 	ErrOutOfStock    = errors.New("sản phẩm đã hết hàng")
 	ErrLimitExceeded = errors.New("bạn đã vượt quá giới hạn mua cho phép")
 	ErrSystem        = errors.New("lỗi hệ thống")
+	ErrKeyNotFound   = errors.New("key không tồn tại")
 )
 
 // [Refactor] Đổi tên thành InventoryCache cho đúng trách nhiệm
@@ -45,7 +48,10 @@ func NewInventoryCache(client *redis.Client) *InventoryCache {
 }
 
 func (c *InventoryCache) DeductStock(ctx context.Context, productID uuid.UUID, userID string, quantity int, limit int) error {
-
+	start := time.Now()
+	defer func() {
+		metrics.RedisLatency.WithLabelValues("deduct").Observe(time.Since(start).Seconds())
+	}()
 	stockKey := fmt.Sprintf("product:%s:stock", productID.String())
 	historyKey := fmt.Sprintf("product:%s:bought_history", productID.String())
 
@@ -67,22 +73,33 @@ func (c *InventoryCache) DeductStock(ctx context.Context, productID uuid.UUID, u
 	}
 }
 
-//dùng để đồng bộ số lượng tồn kho từ database lên reddis trước khi bắt đầu 
-func (c *InventoryCache) SetInitialStock(ctx context.Context, productID uuid.UUID, quantity int) error {
+// dùng để đồng bộ số lượng tồn kho từ database lên reddis trước khi bắt đầu
+func (c *InventoryCache) SetStock(ctx context.Context, productID uuid.UUID, quantity int) error {
+	start := time.Now()
+	defer func() {
+		metrics.RedisLatency.WithLabelValues("set").Observe(time.Since(start).Seconds())
+	}()
 	key := fmt.Sprintf("product:%s:stock", productID.String())
 	return c.client.Set(ctx, key, quantity, 0).Err()
 }
 
 // GetStock - Lấy số lượng tồn kho hiện tại để hiển thị lên UI
 func (c *InventoryCache) GetStock(ctx context.Context, productID uuid.UUID) (int, error) {
+	start := time.Now()
+	defer func() {
+		metrics.RedisLatency.WithLabelValues("get").Observe(time.Since(start).Seconds())
+	}()
 	key := fmt.Sprintf("product:%s:stock", productID.String())
 	val, err := c.client.Get(ctx, key).Result()
 	if errors.Is(err, redis.Nil) {
-		return 0, nil
+		return 0, ErrKeyNotFound // Trả lỗi định danh để lớp UseCase biết đường xử lý
 	}
+	// Case 2: Lỗi khác (Mất kết nối, Timeout...)
 	if err != nil {
 		return 0, err
 	}
+
+	// Case 3: Có dữ liệu -> Convert sang int
 	return strconv.Atoi(val)
 }
 
@@ -103,8 +120,7 @@ func (c *InventoryCache) CheckAndReserve(ctx context.Context, productID uuid.UUI
 	return result, nil
 }
 
-
-//rollback stock
+// rollback stock
 func (c *InventoryCache) IncrStock(ctx context.Context, productID uuid.UUID, quantity int) error {
 	key := fmt.Sprintf("product:%s:stock", productID.String())
 	//lệnh IncryBy 	hãy tìm cái key này ,và cộng thêm vào giá trị hiện tại 1 lượng là quantity

@@ -1,9 +1,12 @@
 package http
 
 import (
+	"fmt"
+
 	"github.com/Hidas2004/go-flashsale-system/internal/delivery/http/middleware"
 	v1 "github.com/Hidas2004/go-flashsale-system/internal/delivery/http/v1"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type RouterConfig struct {
@@ -26,6 +29,10 @@ func NewRouter(config *RouterConfig) *gin.Engine {
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok", "message": "System is running 🚀"})
 	})
+	// [NEW] Metrics Endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	fmt.Println("✅ Registered /metrics endpoint")
+
 	v1Group := r.Group("/api/v1")
 	{
 		// --- Public Routes ---

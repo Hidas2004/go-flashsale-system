@@ -33,4 +33,32 @@ var (
 		},
 		[]string{"product_id"},
 	)
+
+	//đo độ trễ của reddis
+	RedisLatency = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "flashsale_redis_latency_seconds",
+			Help:    "Latency of Redis operations",
+			Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1},
+		},
+		[]string{"command"}, // label: "deduct", "get", "set"
+	)
+
+	// đo độ trễ xử lý (queue log)
+	WorkerLag = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "flashsale_worker_lag_seconds",
+			Help:    "Time difference between order creation and processing",
+			Buckets: []float64{0.1, 0.5, 1, 2, 5, 10, 30},
+		},
+		[]string{"status"}, // label: "processed", "failed"
+	)
+
+	// [NEW] Đếm số lần chặn đơn trùng (Idempotency)
+	IdempotencyDuplicates = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "flashsale_idempotency_duplicate_total",
+			Help: "Total number of duplicate orders detected and skipped",
+		},
+	)
 )

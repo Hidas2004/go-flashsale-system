@@ -32,4 +32,5 @@ type OrderUseCase interface {
 
 type InventoryUseCase interface {
 	SyncStockToRedis(ctx context.Context, productID uuid.UUID) error
+	ReconcileStock(ctx context.Context, productID uuid.UUID) error
 }

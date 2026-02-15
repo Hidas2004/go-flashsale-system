@@ -47,7 +47,7 @@ type InventoryRepository interface {
 type InventoryCache interface {
 	DeductStock(ctx context.Context, productID uuid.UUID, userID string, quantity int, limit int) error
 	IncrStock(ctx context.Context, productID uuid.UUID, quantity int) error
-	SetInitialStock(ctx context.Context, productID uuid.UUID, stock int) error
+	SetStock(ctx context.Context, productID uuid.UUID, stock int) error
 	GetStock(ctx context.Context, productID uuid.UUID) (int, error)
 }
 

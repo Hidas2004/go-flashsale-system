@@ -10,6 +10,7 @@ import (
 	"github.com/Hidas2004/go-flashsale-system/internal/domain/dtos"
 	"github.com/Hidas2004/go-flashsale-system/internal/domain/models"
 	"github.com/Hidas2004/go-flashsale-system/pkg/database"
+	"github.com/Hidas2004/go-flashsale-system/pkg/metrics"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
@@ -71,7 +72,7 @@ func (u *orderUseCase) CreateFlashSaleOrder(ctx context.Context, userID uuid.UUI
 		inv, err := u.inventoryRepo.FindByProductID(ctx, req.ProductID)
 		if err == nil && inv.Stock > 0 {
 			// Warm up cache
-			_ = u.inventoryCache.SetInitialStock(ctx, req.ProductID, inv.Stock)
+			_ = u.inventoryCache.SetStock(ctx, req.ProductID, inv.Stock)
 			log.Printf("🔥 Warmed up cache for product %s with stock %d", req.ProductID, inv.Stock)
 		}
 	}
@@ -127,6 +128,7 @@ func (u *orderUseCase) ProcessOrder(ctx context.Context, msg *dtos.OrderMessage)
 	}
 	if exists {
 		log.Printf("⚠️ Order %s processed. Skipping.", msg.OrderID)
+		metrics.IdempotencyDuplicates.Inc()
 		return nil
 	}
 
