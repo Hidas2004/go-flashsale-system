@@ -2,6 +2,7 @@ package http
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Hidas2004/go-flashsale-system/internal/delivery/http/middleware"
 	v1 "github.com/Hidas2004/go-flashsale-system/internal/delivery/http/v1"
@@ -16,6 +17,8 @@ type RouterConfig struct {
 	AdminMiddleware *middleware.AdminMiddleware
 	AuthMiddleware  *middleware.AuthMiddleware
 	RateLimiter     *middleware.RateLimiterMiddleware
+	RateLimit       int
+	RateDuration    int
 }
 
 func NewRouter(config *RouterConfig) *gin.Engine {
@@ -54,7 +57,8 @@ func NewRouter(config *RouterConfig) *gin.Engine {
 		{
 			orders := protected.Group("/orders")
 			{
-				orders.POST("", config.OrderHandler.CreateOrder)
+				// Áp dụng Rate Limiter cho tạo đơn hàng (tránh spam)
+				orders.POST("", config.RateLimiter.Limit(config.RateLimit, time.Duration(config.RateDuration)*time.Second), config.OrderHandler.CreateOrder)
 				orders.GET("/:id", config.OrderHandler.GetOrder)
 				orders.GET("", config.OrderHandler.GetUserOrders)
 			}

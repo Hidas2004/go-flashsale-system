@@ -7,6 +7,7 @@ import (
 
 	"github.com/Hidas2004/go-flashsale-system/internal/domain"
 	"github.com/Hidas2004/go-flashsale-system/internal/domain/models"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -50,4 +51,30 @@ func (c *productCache) SetFlashSaleProducts(ctx context.Context, products []*mod
 // (Xóa Cache)
 func (c *productCache) InvalidateFlashSaleProducts(ctx context.Context) error {
 	return c.client.Del(ctx, flashSaleKey).Err()
+}
+
+func (c *productCache) GetProduct(ctx context.Context, id uuid.UUID) (*models.Product, error) {
+	key := "product:" + id.String()
+	val, err := c.client.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var product models.Product
+	if err := json.Unmarshal([]byte(val), &product); err != nil {
+		return nil, err
+	}
+	return &product, nil
+}
+
+func (c *productCache) SetProduct(ctx context.Context, product *models.Product) error {
+	key := "product:" + product.ID.String()
+	data, err := json.Marshal(product)
+	if err != nil {
+		return err
+	}
+	// Cache 10 mins
+	return c.client.Set(ctx, key, data, 10*time.Minute).Err()
 }

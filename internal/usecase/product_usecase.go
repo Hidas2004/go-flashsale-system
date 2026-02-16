@@ -82,7 +82,24 @@ func (uc *productUseCase) CreateProduct(ctx context.Context, req *dtos.CreatePro
 }
 
 func (pu *productUseCase) FindByID(ctx context.Context, id uuid.UUID) (*models.Product, error) {
-	return pu.productRepo.FindByID(ctx, id)
+	// 1. Check Cache
+	product, err := pu.productCache.GetProduct(ctx, id)
+	if err == nil && product != nil {
+		return product, nil
+	}
+
+	// 2. Query DB
+	product, err = pu.productRepo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Set Cache (Async)
+	go func() {
+		_ = pu.productCache.SetProduct(context.Background(), product)
+	}()
+
+	return product, nil
 }
 
 func (pu *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req *dtos.UpdateProductRequest) (*models.Product, error) {

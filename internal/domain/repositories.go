@@ -61,4 +61,6 @@ type ProductCache interface {
 	GetFlashSaleProducts(ctx context.Context) ([]*models.Product, error)
 	SetFlashSaleProducts(ctx context.Context, products []*models.Product) error
 	InvalidateFlashSaleProducts(ctx context.Context) error
+	GetProduct(ctx context.Context, id uuid.UUID) (*models.Product, error)
+	SetProduct(ctx context.Context, product *models.Product) error
 }

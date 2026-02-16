@@ -18,6 +18,7 @@ type Config struct {
 	RabbitMQ  RabbitMQConfig  `mapstructure:"rabbitmq"`
 	JWT       JWTConfig       `mapstructure:"jwt"`
 	FlashSale FlashSaleConfig `mapstructure:"flash_sale"`
+	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
 }
 
 type ServerConfig struct {
@@ -60,6 +61,11 @@ type JWTConfig struct {
 type FlashSaleConfig struct {
 	StockTTL     int `mapstructure:"stock_ttl"`
 	OrderTimeout int `mapstructure:"order_timeout"`
+}
+
+type RateLimitConfig struct {
+	Limit    int `mapstructure:"limit"`
+	Duration int `mapstructure:"duration"` // Seconds
 }
 
 func LoadConfig(path string) (*Config, error) {

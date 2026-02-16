@@ -21,15 +21,15 @@ const (
 
 type Order struct {
 	ID        uuid.UUID `gorm:"type:uuid;primary_key;" json:"id"`
-	UserID    uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"` // Index để user xem lịch sử đơn
+	UserID    uuid.UUID `gorm:"type:uuid;not null;index:idx_user_status" json:"user_id"` // Index composite (user_id, status)
 	ProductID uuid.UUID `gorm:"type:uuid;not null" json:"product_id"`
 
 	Quantity   int             `gorm:"not null" json:"quantity"`
 	TotalPrice decimal.Decimal `gorm:"type:decimal(10,2);not null" json:"total_price"`
 
-	Status OrderStatus `gorm:"type:varchar(50);default:'pending';index" json:"status"`
+	Status OrderStatus `gorm:"type:varchar(50);default:'pending';index:idx_user_status" json:"status"`
 
-	CreatedAt time.Time      `json:"created_at"`
+	CreatedAt time.Time      `json:"created_at" gorm:"index"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 

@@ -110,6 +110,8 @@ func main() {
 		AuthMiddleware:  authMiddleware,
 		RateLimiter:     rateLimiter,
 		AdminMiddleware: adminMiddleware,
+		RateLimit:       cfg.RateLimit.Limit,
+		RateDuration:    cfg.RateLimit.Duration,
 	})
 
 	// 8. Setup HTTP Server

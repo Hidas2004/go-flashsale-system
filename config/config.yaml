@@ -33,3 +33,7 @@ jwt:
 flash_sale:
   stock_ttl: 3600
   order_timeout: 300
+
+rate_limit:
+  limit: 10
+  duration: 1 # 10 requests per second per user
