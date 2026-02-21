@@ -23,7 +23,6 @@ Dự án được xây dựng dựa trên Clean Architecture:
 - **Message Queue:** RabbitMQ (Xử lý đơn hàng bất đồng bộ).
 - **Config:** Viper (Quản lý cấu hình đa môi trường).
 - **Infrastructure:** Docker, Docker Compose.
-
 ---
 
 ## ⚙️ Cài đặt & Chạy v (Installation)
@@ -56,22 +55,17 @@ Mở terminal #2:
 
 ```bash
 go run cmd/worker/main.go
-# Chờ thấy log: ✅ Worker started
 ```
 
 ---
 
 ## 🧪 Hướng dẫn Test (API Testing Guide)
 
-Dưới đây là kịch bản test chi tiết (đã verify) sử dụng **Postman**.
-
 **Cấu hình Environment trong Postman:**
 
 - `base_url`: `http://localhost:8081`
 
 ### 🔵 GIAI ĐOẠN 1: SETUP ADMIN (Admin Flow)
-
-_Yêu cầu: Role "admin" để quản lý sản phẩm._
 
 **2. Đăng ký Admin**
 
@@ -154,7 +148,6 @@ _Yêu cầu: Role "admin" để quản lý sản phẩm._
     "quantity": 1
   }
   ```
-- **Kỳ vọng:** `202 Accepted` (Order được đẩy vào Queue xử lý).
 
 ### 🟣 GIAI ĐOẠN 3: XỬ LÝ & KIỂM TRA (Verification)
 
@@ -163,7 +156,6 @@ _Yêu cầu: Role "admin" để quản lý sản phẩm._
 - **URL:** `{{base_url}}/api/v1/orders`
 - **Method:** `GET`
 - **Header:** `Authorization: Bearer {{user_token}}`
-- **Kỳ vọng:** Thấy đơn hàng vừa đặt có trạng thái `pending` -> `confirmed` (Sau khi Worker xử lý xong).
 
 **9. Admin cập nhật trạng thái (Giao hàng)**
 
@@ -178,6 +170,5 @@ _Yêu cầu: Role "admin" để quản lý sản phẩm._
       "status": "shipping"
     }
     ```
-  - **Lưu ý:** Status phải là `shipping` (đang giao), không phải `shipped`.
-
 ---
+
